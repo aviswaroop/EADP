@@ -1,14 +1,20 @@
 const int potentiometerPin = A0;
 const int redLED = 11;
-const int greenLED = 3;
+
+const int buttonPin = 2;
 
 int ledState = LOW;
+int buttonState1 = 0;
+int buttonState0 = 0;
 
 float sensorValue = 0;
 
 float y = 0;
 float y_prev = 0;
+
+// bpm : number of times chest or abdomen rises over the course of one minute
 float bpm = 0;
+
 float blinkDelay = 0;
 int instanceCount = 0;
 
@@ -21,22 +27,22 @@ int ledStatus = 0;
 int minuteFlag = 0;
 unsigned long minuteStart = 0;
 unsigned long minuteEnd = 0;
-int runDuration = 0;
-int runCount = 0;
 
-unsigned long tempVar1 = 0;
-unsigned long tempVar2 = 0;
-int tempVar3 = 0;
-int tempVar4 = 0;
+int brightness = 0;
+int fadeAmount = 5;
 
-void setup() {
+int lightJump = 0;
+
+void setup()
+{
   Serial.begin(115200);
   pinMode(redLED, OUTPUT);
-  pinMode(greenLED, OUTPUT);
-  pinMode(potentiometerPin, INPUT);
+  // pinMode(potentiometerPin, INPUT);
+  pinMode(buttonPin, INPUT);
 }
 
-void debugOutputs(){
+void debugOutputs()
+{
   if (y != y_prev){
     y_prev = y;
     Serial.print(y);
@@ -45,86 +51,83 @@ void debugOutputs(){
     Serial.print(", ");
     Serial.print(blinkDelay);
     Serial.print(", ");
-    Serial.print(runCount);
+    Serial.print(buttonState1);
     Serial.println("");
     }
 }
 
-void minuteNotify(){
-  if (minuteFlag == 0){
-    minuteFlag = 1;
-    minuteStart = millis();
-  }
-  else if (minuteFlag == 1){
-    minuteEnd = millis();
-    runDuration = minuteEnd - minuteStart;
-    if (runDuration == 60){
-      minuteFlag = 0;
-      runCount += 1;
-    }
-  }
-}
+void inputProcess()
+{  
+  // sensorValue = analogRead(potentiometerPin);
+  // y = map(sensorValue, 0, 1023, 0, 130);
 
-/*
-
-void preliminaryChecks(){
-  if (blinkCount == 60){
-    ledStatus == 1;
-    blinkCount == 0;
-  }
-  if (ledStatus == 1){
-    digitalWrite(greenLED, HIGH);
-  }
-}
-
-*/
-
-void inputProcess(){
-  sensorValue = analogRead(potentiometerPin);
-  y = map(sensorValue, 0, 1023, 0, 130);
+  y = 10;
 
   bpm = (float)y + 10;
   blinkDelay = ((60.0 / bpm) * 1000) / 2;
 }
 
-void lightActions(){
-  if (instanceCount == 0){
-    instanceCount += 1;
-    startTime = millis();
-    digitalWrite(redLED, ledState);
+void lightActions()
+{
+  buttonState1 = digitalRead(buttonPin);
+  if ((buttonState1 != buttonState0) && (buttonState1 == HIGH))
+  {
+    lightJump = 1;
+    buttonState0 = buttonState1;
   }
-  else if(instanceCount == 1){
-    endTime = millis();
-    timeDifference = endTime - startTime;
-    if (timeDifference >= blinkDelay){
-      if (ledState == LOW){
-        ledState = HIGH;
-      }
-      else{
-        ledState = LOW;
-      }
-      startTime = endTime;
+
+  if (lightJump == 0)
+  {
+    if (instanceCount == 0)
+    {
+      startTime = millis();
       digitalWrite(redLED, ledState);
-      Serial.println(2*timeDifference);
-      if (tempVar3 == 0){
-        tempVar3 = 1;
-        tempVar1 = millis();
-      }
-      if (tempVar3 == 1){
-        tempVar2 = millis();
-        tempVar4 = tempVar2 - tempVar1;
-        if (tempVar4 >= blinkDelay){
-          tempVar1 = tempVar2;
+      instanceCount += 1;
+    }
+    else if(instanceCount >= 1)
+    {
+      endTime = millis();
+      timeDifference = endTime - startTime;
+      if (timeDifference >= blinkDelay)
+      {
+        if (instanceCount == 2)
+        {
           instanceCount = 0;
-          }
         }
+        if (ledState == LOW)
+        {
+          ledState = HIGH;
+        }
+        else
+        {
+          ledState = LOW;
+        }
+        startTime = endTime;
+        instanceCount += 1;
+        digitalWrite(redLED, ledState);
+      }
+    }
+  }
+  else if (lightJump == 1)
+  {
+    if (ledState != HIGH)
+    {
+      ledState = HIGH;
+      digitalWrite(redLED, ledState);
+      startTime = millis();
+    }
+    
+    if ((int)millis() - startTime >= blinkDelay)
+    {
+      digitalWrite(redLED, LOW);
+      lightJump = 0;
+      instanceCount = 0;
     }
   }
 }
 
-void loop(){
-  // preliminaryChecks();
-  // minuteNotify();
+void loop()
+{
   inputProcess();
   lightActions();
   debugOutputs();
